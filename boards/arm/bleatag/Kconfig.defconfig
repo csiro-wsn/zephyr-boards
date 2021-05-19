@@ -1,0 +1,15 @@
+# Copyright (c) 2021 CSIRO
+
+if BOARD_BLEATAG
+
+config BOARD
+	default "bleatag"
+
+config BT_CTLR
+	default BT
+
+config SOC_FLASH_NRF_UICR
+	default FLASH
+
+endif # BOARD_BLEATAG
+

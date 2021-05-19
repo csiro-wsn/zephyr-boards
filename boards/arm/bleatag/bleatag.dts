@@ -1,0 +1,206 @@
+/*
+ * Copyright (c) 2021 CSIRO
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/dts-v1/;
+#include <nordic/nrf52840_qiaa.dtsi>
+
+/ {
+	model = "CSIRO BLEATag";
+	compatible = "csiro,bleatag";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		red_led: led_0 {
+			gpios = <&gpio1 1 (GPIO_ACTIVE_HIGH | GPIO_PUSH_PULL)>;
+			label = "Red LED";
+		};
+		green_led: led_1 {
+			gpios = <&gpio1 2 (GPIO_ACTIVE_HIGH | GPIO_PUSH_PULL)>;
+			label = "Green LED";
+		};
+		blue_led: led_2  {
+			gpios = <&gpio1 3 (GPIO_ACTIVE_HIGH | GPIO_PUSH_PULL)>;
+			label = "Blue LED";
+		};
+	};
+
+	buttons {
+		compatible = "gpio-keys";
+		button0: button_0 {
+			gpios = <&gpio1 15 (GPIO_ACTIVE_LOW)>;
+			label = "Button";
+		};
+	};
+
+	vbatt {
+		compatible = "voltage-divider";
+		io-channels = <&adc 0>;
+		output-ohms = <10000>;
+		full-ohms = <(49900 + 10000)>;
+		power-gpios = <&gpio0 31 (GPIO_ACTIVE_HIGH | GPIO_PUSH_PULL)>;
+	};
+
+	/* BMA280 Power Domain */
+	acc_pwr: acc-pwr-ctrl {
+		compatible = "regulator-fixed-sync", "regulator-fixed";
+		label = "acc-pwr-ctrl";
+		regulator-name = "acc-pwr-ctrl";
+		enable-gpios = <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PUSH_PULL)>;
+	};
+
+	/* Piezo Buzzer Power Domain (Piezo output is p0.8 in PWM node) */
+	spk_pwr: spk-pwr-ctrl {
+		compatible = "regulator-fixed-sync", "regulator-fixed";
+		label = "spk-pwr-ctrl";
+		regulator-name = "spk-pwr-ctrl";
+		enable-gpios = <&gpio0 6 (GPIO_ACTIVE_LOW | GPIO_PUSH_PULL)>;
+	};
+
+	aliases {
+		led0 = &red_led;
+		led1 = &green_led;
+		led2 = &blue_led;
+	};
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&adc {
+	status = "okay";
+};
+
+&pwm0 {
+	status = "okay";
+	/* Piezo buzzer output */
+	ch0-pin = <8>;
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uarte";
+	current-speed = <115200>;
+	status = "okay";
+	tx-pin = <23>;
+	rx-pin = <24>;
+	rts-pin = <25>;
+	cts-pin = <32>;
+};
+
+&spi1 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	sck-pin = <15>;
+	mosi-pin = <16>;
+	miso-pin = <17>;
+	cs-gpios = <&gpio0 14 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+	onboard_flash: mx25r1635f@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <32000000>;
+		label = "MX25R1635F";
+		jedec-id = [c2 28 15];
+		has-dpd;
+		t-enter-dpd = <3000>;
+		t-exit-dpd = <4500>;
+		size = <16777216>;
+	};
+};
+
+&spi2 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	sck-pin = <41>;
+	mosi-pin = <11>;
+	miso-pin = <40>;
+
+	/* BMA280 Accelerometer: SPI
+	cs-gpios = <&gpio0 12 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+	bma280@0 {
+		compatible = "bosch,bma280";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		label = "BMA280_EI";
+		int1-gpios =  <&gpio1 14 (GPIO_ACTIVE_HIGH)>;
+		int2-gpios =  <&gpio1 13 (GPIO_ACTIVE_HIGH)>;
+		power-domains = <&power_vddacc>;
+	};
+	*/
+};
+
+/ {
+	soc {
+		ficr: ficr@10000000 {
+			compatible = "nordic,nrf-ficr";
+			reg = <0x10000000 0x1000>;
+			status = "okay";
+		};
+
+		uicr: uicr@10001000 {
+			compatible = "nordic,nrf-uicr";
+			reg = <0x10001000 0x1000>;
+			status = "okay";
+		};
+	};
+};
+
+&flash0 {
+	/*
+	 * For more information, see:
+	 * http://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
+	 */
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x000000000 0x0000C000>;
+		};
+		slot0_partition: partition@c000 {
+			label = "image-0";
+			reg = <0x0000C000 0x000067000>;
+		};
+		slot1_partition: partition@73000 {
+			label = "image-1";
+			reg = <0x00073000 0x000067000>;
+		};
+		scratch_partition: partition@da000 {
+			label = "image-scratch";
+			reg = <0x000da000 0x0001e000>;
+		};
+
+		/*
+		 * The flash starting at 0x000f8000 and ending at
+		 * 0x000fffff is reserved for use by the application.
+		 */
+
+		/* Storage partition will be used by FCB/NFFS/NVS if enabled. */
+		storage_partition: partition@f8000 {
+			label = "storage";
+			reg = <0x000f8000 0x00008000>;
+		};
+	};
+};

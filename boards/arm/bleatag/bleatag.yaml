@@ -1,0 +1,11 @@
+identifier: bleatag
+name: BLEATag
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - ble
+testing:
+  default: false
