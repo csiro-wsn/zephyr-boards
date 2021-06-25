@@ -1,0 +1,8 @@
+# Ceresat board configuration
+
+# Copyright (c) 2016 Nordic Semiconductor ASA
+# SPDX-License-Identifier: Apache-2.0
+
+config BOARD_LOCI3
+	bool "LOCI3"
+	depends on SOC_SERIES_NRF52X && SOC_NRF52840_QIAA

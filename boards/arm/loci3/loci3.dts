@@ -1,0 +1,225 @@
+/*
+ * Copyright (c) 2021 CSIRO
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+ /dts-v1/;
+ #include <nordic/nrf52840_qiaa.dtsi>
+
+/ {
+	model = "CSIRO loci3";
+	compatible = "csiro,loci3";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		red_led: led_0 {
+			gpios = <&gpio1 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+			label = "Red LED";
+		};
+		green_led: led_1 {
+			gpios = <&gpio1 3 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+			label = "Green LED";
+		};
+		blue_led: led_2  {
+			gpios = <&gpio1 1 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+			label = "Blue LED";
+		};
+	};
+
+	vbatt {
+		compatible = "voltage-divider";
+		io-channels = <&adc 0>;
+		output-ohms = <10000>;
+		full-ohms = <(49900 + 10000)>;
+		power-gpios = <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+	};
+
+	/* Auxiliary Power Domain */
+	aux_pwr: aux-pwr-ctrl {
+		compatible = "regulator-fixed";
+		label = "aux-pwr-ctrl";
+		regulator-name = "aux-pwr-ctrl";
+		enable-gpios = <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+	};
+
+	/* GPS Power Domain */
+	gps_pwr: gps-pwr-ctrl {
+		compatible = "regulator-fixed-sync", "regulator-fixed";
+		label = "gps-pwr-ctrl";
+		regulator-name = "gps-pwr-ctrl";
+		enable-gpios = <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+	};
+
+	/* SD Card Power Domain */
+	sd_pwr: sd-pwr-ctrl {
+		compatible = "regulator-fixed-sync", "regulator-fixed";
+		label = "sd-pwr-ctrl";
+		regulator-name = "sd-pwr-ctrl";
+		enable-gpios = <&gpio1 2 (GPIO_ACTIVE_HIGH | GPIO_OPEN_SOURCE)>;
+	};
+
+	aliases {
+		led0 = &red_led;
+		led1 = &green_led;
+		led2 = &blue_led;
+
+		lora0 = &lora;
+	};
+};
+
+&uart0 {
+	compatible = "nordic,nrf-uarte";
+	current-speed = <115200>;
+	status = "okay";
+	tx-pin = <6>;
+	rx-pin = <7>;
+	rts-pin = <8>;
+	cts-pin = <11>;
+};
+
+&gpiote {
+	status = "okay";
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&adc {
+	status = "okay";
+};
+
+/* SPIM0, SPIM1 and SPIM2 clocks are maximum 8MHz */
+&spi0 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	sck-pin = <12>;
+	mosi-pin = <13>;
+	miso-pin = <14>;
+	cs-gpios = <&gpio1 9 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>,
+			<&gpio1 7 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>,
+			<&gpio1 0 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+	lora: sx1262@0 {
+		compatible = "semtech,sx1262";
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		label = "SX1262";
+		reset-gpios = <&gpio1 15 (GPIO_ACTIVE_LOW)>;
+		busy-gpios = <&gpio0 5 (GPIO_ACTIVE_HIGH)>;
+		antenna-enable-gpios = <&gpio0 31 (GPIO_ACTIVE_HIGH)>;
+		dio1-gpios = <&gpio0 4 (GPIO_ACTIVE_HIGH)>;
+		dio2-tx-enable;
+		tcxo-power-startup-delay-ms = <5>;
+	};
+
+	bma400: bma400@1 {
+		compatible = "bosch,bma400";
+		reg = <1>;
+		spi-max-frequency = <17000000>;
+		label = "BMA400";
+		int1-gpios =  <&gpio0 9 (GPIO_ACTIVE_HIGH)>;
+	};
+
+	bmx160: bmx160@2 {
+		compatible = "bosch,bmx160";
+		reg = <2>;
+		spi-max-frequency = <10000000>;
+		label = "BMX160";
+		int1-gpios =  <&gpio1 6 (GPIO_ACTIVE_HIGH)>;
+	};
+};
+
+daughter_i2c: &i2c1 {
+	compatible = "nordic,nrf-twi";
+	status = "okay";
+	sda-pin = <19>;
+	scl-pin = <20>;
+	clock-frequency = <I2C_BITRATE_STANDARD>;
+
+	bme680@76{
+		compatible = "bosch,bme680";
+		reg = <0x76>;
+		label = "BME680_EI";
+	};
+	si1133@55{
+		compatible = "silabs,si1133";
+		reg = <0x55>;
+		label = "SI1133";
+	};
+};
+
+/* SPIM3 clock is maximum 32MHz */
+&spi3 {
+	compatible = "nordic,nrf-spim";
+	status = "okay";
+	sck-pin = <15>;
+	mosi-pin = <16>;
+	miso-pin = <17>;
+	cs-gpios = <&gpio0 27 (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN)>;
+
+	onboard_flash: w25q128jv@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+		label = "W25Q128";
+		jedec-id = [ef 40 18];
+		has-dpd;
+		t-enter-dpd = <3000>;
+		t-exit-dpd = <3000>;
+		size = <134217728>;
+	};
+};
+
+&flash0 {
+	/*
+	 * For more information, see:
+	 * http://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
+	 */
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		boot_partition: partition@0 {
+			label = "mcuboot";
+			reg = <0x000000000 0x0000C000>;
+		};
+		slot0_partition: partition@c000 {
+			label = "image-0";
+			reg = <0x0000C000 0x000067000>;
+		};
+		slot1_partition: partition@73000 {
+			label = "image-1";
+			reg = <0x00073000 0x000067000>;
+		};
+		scratch_partition: partition@da000 {
+			label = "image-scratch";
+			reg = <0x000da000 0x0001e000>;
+		};
+
+		/*
+		 * The flash starting at 0x000f8000 and ending at
+		 * 0x000fffff is reserved for use by the application.
+		 */
+
+		/* Storage partition will be used by FCB/NFFS/NVS if enabled. */
+		storage_partition: partition@f8000 {
+			label = "storage";
+			reg = <0x000f8000 0x00008000>;
+		};
+	};
+};

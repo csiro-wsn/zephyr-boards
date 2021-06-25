@@ -1,0 +1,14 @@
+# Ceresat board configuration
+
+if BOARD_LOCI3
+
+config BOARD
+	default "loci3"
+
+config BT_CTLR
+	default BT
+
+config SOC_FLASH_NRF_UICR
+	default FLASH
+
+endif # BOARD_LOCI3

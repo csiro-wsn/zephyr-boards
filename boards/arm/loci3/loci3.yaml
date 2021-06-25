@@ -1,0 +1,11 @@
+identifier: loci3
+name: loci3
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - ble
+testing:
+  default: true
